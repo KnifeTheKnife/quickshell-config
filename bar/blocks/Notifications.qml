@@ -9,6 +9,13 @@ BarBlock {
 
     text: " " + notificationCount
     dim: notificationCount === 0
+    content: BarText {
+        symbolText: "󰂚"  // Bell icon from Nerd Font
+        hasNotifications: notificationCount > 0
+        notificationCount: root.notificationCount
+        dim: notificationCount === 0
+        color: "#FFFFFF"
+    }
 
     onClicked: function() {
         showNotification = !showNotification
