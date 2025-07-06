@@ -12,28 +12,29 @@ RowLayout {
 
     Rectangle {
         id: workspaceBar
-        Layout.preferredWidth: Math.max(50, Utils.HyprlandUtils.maxWorkspace * 25)
+        Layout.preferredWidth: workspaceRow.implicitWidth + 20
         Layout.preferredHeight: 23
         radius: 7
         color: Theme.get.barBgColor
 
         Row {
+            id: workspaceRow
             anchors.centerIn: parent
-            spacing: 15
+            spacing: 5
 
             Repeater {
-                model: Utils.HyprlandUtils.maxWorkspace || 1
+                model: Hyprland.workspaces
 
                 Item {
-                    required property int index
-                    property bool focused: Hyprland.focusedMonitor?.activeWorkspace?.id === (index + 1)
-                    
-                    width: workspaceText.width
-                    height: workspaceText.height
+                    required property var modelData
+                    property bool focused: Hyprland.focusedMonitor?.activeWorkspace?.id === modelData.id
+
+                    width: workspaceText.implicitWidth + 10
+                    height: workspaceText.implicitHeight
 
                     Text {
                         id: workspaceText
-                        text: (index + 1).toString()
+                        text: modelData.id.toString()
                         color: "white"
                         font.pixelSize: 15
                         font.bold: focused
@@ -65,7 +66,7 @@ RowLayout {
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: Utils.HyprlandUtils.switchWorkspace(index + 1)
+                        onClicked: Utils.HyprlandUtils.switchWorkspace(modelData.id)
                     }
                 }
             }

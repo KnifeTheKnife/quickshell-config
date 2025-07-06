@@ -102,9 +102,6 @@ Scope {
           Layout.fillWidth: true
   
           Blocks.SystemTray {}
-          Blocks.Memory {}
-          Blocks.Sound {}
-          Blocks.Battery {}
           Blocks.Date {}
           Blocks.Time {}
           Blocks.Notifications {}

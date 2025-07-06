@@ -1,10 +1,10 @@
 import QtQuick
-import Quickshell.Services.Notifications
+import Quickshell
+import Quickshell.Io
 import "../"
 
 BarBlock {
     id: root
-    property bool showNotification: false
     property int notificationCount: 0
 
     text: " " + notificationCount
@@ -17,57 +17,111 @@ BarBlock {
         color: "#FFFFFF"
     }
 
-    onClicked: function() {
-        showNotification = !showNotification
-    }
-
-    // Update notification count when tracked notifications change
-    Connections {
-        target: notifServer.trackedNotifications
-        function onValuesChanged() {
-            notificationCount = notifServer.trackedNotifications.values.length
+    MouseArea {
+        anchors.fill: parent
+        onClicked: {
+            // Toggle swaync notification center
+            swayncToggle.running = true
         }
     }
 
-    NotificationServer {
-        id: notifServer
-        onNotification: (notification) => {
-            notification.tracked = true
-            notificationCount = notifServer.trackedNotifications.values.length
-        }
-    }
+    // Toggle swaync
+    Process {
+        id: swayncToggle
+        command: ["swaync-client", "-t", "-sw"]
 
-    NotificationPanel {
-        id: notificationPanel
-        text_color: "#FFFFFF"
-        visible: showNotification
-
-        anchors {
-            top: parent.bottom
-            right: parent.right
-        }
-
-        margins {
-            top: 5
-            right: 0
-        }
-
-        // Close panel when clicking outside
         Component.onCompleted: {
-            // Connect to the notification server in the panel
-            notificationPanel.server.onNotification.connect(function(notification) {
-                notificationCount = notifServer.trackedNotifications.values.length
+            finished.connect(function() {
+                swayncToggle.running = false
+                // Update count after potential dismissals
+                countUpdateTimer.start()
             })
         }
     }
 
-    // Close notification panel when clicking elsewhere
-    Connections {
-        target: Quickshell.screens[0] // Assuming single screen for now
-        function onClicked() {
-            if (showNotification) {
-                showNotification = false
+    // Get notification count
+    Process {
+        id: swayncCount
+        command: ["swaync-client", "-c"]
+
+        Component.onCompleted: {
+            finished.connect(function(exitCode, stdout, stderr) {
+                swayncCount.running = false
+                if (exitCode === 0) {
+                    var count = parseInt(stdout.trim())
+                    if (!isNaN(count)) {
+                        notificationCount = count
+                    }
+                }
+            })
+        }
+    }
+
+    // Periodic count updates
+    Timer {
+        id: countTimer
+        interval: 2000
+        running: true
+        repeat: true
+        onTriggered: {
+            if (!swayncCount.running) {
+                swayncCount.running = true
             }
+        }
+    }
+
+    // Delayed count update
+    Timer {
+        id: countUpdateTimer
+        interval: 500
+        onTriggered: {
+            if (!swayncCount.running) {
+                swayncCount.running = true
+            }
+        }
+    }
+
+    // Subscribe to swaync events for real-time updates
+    Process {
+        id: swayncSubscribe
+        command: ["swaync-client", "-s"]
+
+        Component.onCompleted: {
+            stdout.connect(function(stdout) {
+                // New notification or dismissal - update count
+                countUpdateTimer.start()
+            })
+
+            finished.connect(function(exitCode) {
+                swayncSubscribe.running = false
+                // Restart subscription if it ended
+                if (exitCode !== 0) {
+                    subscribeRestartTimer.start()
+                }
+            })
+        }
+    }
+
+    // Restart subscription timer
+    Timer {
+        id: subscribeRestartTimer
+        interval: 3000
+        onTriggered: {
+            if (!swayncSubscribe.running) {
+                swayncSubscribe.running = true
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        // Initial setup
+        swayncCount.running = true
+        swayncSubscribe.running = true
+    }
+
+    Component.onDestruction: {
+        if (swayncSubscribe.running) {
+            swayncSubscribe.running = false
         }
     }
 }
